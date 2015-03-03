@@ -10,6 +10,8 @@
 #include <vtkImageActor.h>
 #include <vtkXMLImageDataWriter.h>
 
+#include <vtkImageGradientMagnitude.h>
+
 // some standard vtk headers
 #include <vtkSmartPointer.h>
 #include <vtkObjectFactory.h>
@@ -174,6 +176,14 @@ int main(int argc, char* argv[])
 	imageImport->SetImportVoidPointer(myImg.data());
 	imageImport->Update();
 
+	//Look at the magnitude of the gradient of the image.
+	vtkSmartPointer<vtkImageGradientMagnitude> gradMagFilter =
+			vtkSmartPointer<vtkImageGradientMagnitude>::New();
+	gradMagFilter->SetInputConnection(imageImport->GetOutputPort());
+	gradMagFilter->SetDimensionality(3);
+	gradMagFilter->Update();
+
+
    /*
    std::string folder = argv[1];
    //std::string folder = "C:\\VTK\\vtkdata-5.8.0\\Data\\DicomTestImages";
@@ -187,7 +197,8 @@ int main(int argc, char* argv[])
    // Visualize
    vtkSmartPointer<vtkImageViewer2> imageViewer =
       vtkSmartPointer<vtkImageViewer2>::New();
-   imageViewer->SetInputConnection(imageImport->GetOutputPort());
+   //imageViewer->SetInputConnection(imageImport->GetOutputPort());
+   imageViewer->SetInputConnection(gradMagFilter->GetOutputPort());
 
    // slice status message
    vtkSmartPointer<vtkTextProperty> sliceTextProp = vtkSmartPointer<vtkTextProperty>::New();
