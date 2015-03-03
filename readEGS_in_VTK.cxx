@@ -248,7 +248,11 @@ int main(int argc, char* argv[])
    //imageViewer->GetRenderer()->SetBackground(0.2, 0.3, 0.4);
    imageViewer->Render();
    imageViewer->GetRenderer()->ResetCamera();
+   //set the window level appropriate for material indices
+   imageViewer->SetColorWindow(10);
+   imageViewer->SetColorLevel(0.5*10);
    imageViewer->Render();
+
    renderWindowInteractor->Start();
 
    return EXIT_SUCCESS;
