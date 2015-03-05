@@ -101,7 +101,13 @@ target_link_libraries(${LIB_VAR}Lib ${Boost_LIBRARIES})
 SET(LIB_VAR "")
 ##############################################################################
 
+SET(LIB_VAR node_selection)
+ADD_LIBRARY("${LIB_VAR}Lib" ${LIB_VAR}.cpp)
+TARGET_LINK_LIBRARIES("${LIB_VAR}Lib" ${Boost_LIBRARIES})
+
 add_executable(readEGS_in_VTK MACOSX_BUNDLE readEGS_in_VTK)
+add_executable(generate_nodes_from_prob_vertices generate_nodes_from_prob_vertices)
+
 
 if(VTK_LIBRARIES)
   target_link_libraries(readEGS_in_VTK ${VTK_LIBRARIES} egsphantffLib)

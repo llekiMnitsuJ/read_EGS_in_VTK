@@ -170,9 +170,14 @@ struct jmIndexVal{
 	short* valArrPtr_;
 };
 //Comparison for sorting
-bool comp_jmIndexVal(const jmIndexVal& left, const jmIndexVal& right){
+bool comp_lt_jmIndexVal(const jmIndexVal& left, const jmIndexVal& right){
 
 	return (left.valArrPtr_[0] < right.valArrPtr_[0]);
+}
+
+bool comp_gt_jmIndexVal(const jmIndexVal& left, const jmIndexVal& right){
+
+	return (left.valArrPtr_[0] > right.valArrPtr_[0]);
 }
 //function for writing pixel location (i,j,k) and intensity value to a file
 void writeToFile(const std::string& filename,
@@ -195,9 +200,9 @@ void writeToFile(const std::string& filename,
 					<< arr[i].i_ << " "
 					<< arr[i].j_ << " "
 					<< arr[i].k_ << " "
-					<< x0 + (nx-arr[i].i_-1)*dx << " "
-					<< y0 + (ny-arr[i].i_-1)*dy << " "
-					<< z0 + (nz-arr[i].i_-1)*dz << "\n";
+					<< x0 + (arr[i].i_)*dx << " "
+					<< y0 + (arr[i].j_)*dy << " "
+					<< z0 + (arr[i].k_)*dz << "\n";
 		}
 
 		ofs.close();
@@ -367,7 +372,7 @@ protected:
 			}
 
 
-			std::sort(myIndices.begin(), myIndices.end(), comp_jmIndexVal);
+			std::sort(myIndices.begin(), myIndices.end(), comp_gt_jmIndexVal);
 			std::cout << "dumping to text file...\n";
 			writeToFile("sortedPoints.txt",
 					dims[0], dims[1],dims[2],
@@ -378,6 +383,7 @@ protected:
 
 
 		}
+
 		// forward event
 		vtkInteractorStyleImage::OnKeyDown();
 	}
@@ -464,6 +470,11 @@ int main(int argc, char* argv[])
 					myNodes.push_back(myNode);
 					nodeID++;
 				}
+				else
+				{
+					//zero out data in egsphant material
+					myImg[currIndex] = 1; //1 is min value
+				}
 			}
 
 	std::vector<node> bb = bounding_box(myNodes);
@@ -498,20 +509,27 @@ int main(int argc, char* argv[])
 			}
 
 
-	std::cout << "cropped image has " << croppedImg.size() << "elements\n";
+	std::cout << "cropping to ["<< startx << ":" << endx << ","
+			                    << starty << ":" << endy << ","
+								<< startz << ":" << endz << "]\n";
+
+	std::cout << "cropped image has " << croppedImg.size() << " elements\n";
 	//sub array has new size...
 	int newNx {endx - startx + 1};
 	int newNy {endy - starty + 1};
 	int newNz {endz - startz + 1};
 	std::cout << "cropped nx,ny,nz: " << newNx << " " << newNy << " " << newNz << "\n";
 
-
+	double newX0 {(xb[startx] +xb[startx+1])/2};
+	double newY0 {(yb[starty] +yb[starty+1])/2};
+	double newZ0 {(zb[startz] +zb[startz+1])/2};
+	std::cout << "cropped x0,y0,z0: " << newX0 << " " << newY0 << " " << newZ0 << "\n";
 
 	// Convert the c-style image to a vtkImageData
 	vtkSmartPointer<vtkImageImport> imageImport =
 			vtkSmartPointer<vtkImageImport>::New();
 	imageImport->SetDataSpacing(dx, dy, dz);
-	imageImport->SetDataOrigin(x0, y0, z0);
+	imageImport->SetDataOrigin(newX0,newY0,newZ0);
 	imageImport->SetWholeExtent(0, newNx-1, 0, newNy-1, 0, newNz-1);
 	imageImport->SetDataExtentToWholeExtent();
 	imageImport->SetDataScalarTypeToShort();
