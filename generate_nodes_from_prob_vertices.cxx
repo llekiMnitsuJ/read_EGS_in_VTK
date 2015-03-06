@@ -24,21 +24,18 @@ int main(int argc, char* argv[])
 	std::string sortedFilename = argv[1];
 	std::string probFilename = argv[2];
 
-	node_selection<int16_t> myNodeObj{};
-	myNodeObj.ReadFile(sortedFilename);
-	std::cout << "myNodeObj imgArr size: " << myNodeObj.imgArr_.size() << "\n";
+//    node_selection<int16_t> myNodeObj{};
+//	myNodeObj.ReadFile(sortedFilename);
+//	std::cout << "myNodeObj imgArr size: " << myNodeObj.imgArr_.size() << "\n";
+//	node_selection<double> myProbObj = myNodeObj.getProbability();
+//	myProbObj.WriteFile("prob_"+probFilename);
 
-	/*
-	  uint32_t index = myNodeObj.imgArr_.size()-1;
-	  std::cout << "last element: " << myNodeObj.imgArr_[index].val_ << " "
-						          << myNodeObj.imgArr_[index].i_ << " "
-								  << myNodeObj.imgArr_[index].j_ << " "
-								  << myNodeObj.imgArr_[index].k_ << "\n";
-    */
-	node_selection<double> myProbObj = myNodeObj.getProbability();
+	node_selection<double> myProbObj{};
+	myProbObj.ReadFile(sortedFilename);
 
 	node_selection<double> myVertices = myProbObj.CreateListOfVertices(5.0);
-	myVertices.WriteFile(probFilename);
+	myVertices.WriteFile("inserted_"+probFilename);
+	myProbObj.WriteFile("remaining_"+probFilename);
 
 	return 0;
 }

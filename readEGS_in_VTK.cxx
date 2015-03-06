@@ -193,6 +193,7 @@ void writeToFile(const std::string& filename,
 		ofs << nx << " " << ny << " " << nz << "\n";
 		ofs << x0 << " " << y0 << " " << z0 << "\n";
 		ofs << dx << " " << dy << " " << dz << "\n";
+		ofs << arr.size() << "\n";
 
 		//val i j k x y z
 		for (uint32_t i = 0; i < arr.size(); ++i) {
