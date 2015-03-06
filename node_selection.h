@@ -47,15 +47,15 @@ std::ostream& operator<<(std::ostream& os, const nodeIndexVal<Z>& o){
 template <typename T>
 std::vector<size_t> sort_indexes(const std::vector<T> &v) {
 
-  // initialize original index locations
-  std::vector<size_t> idx(v.size());
-  for (std::size_t i = 0; i != idx.size(); ++i) idx[i] = i;
+	// initialize original index locations
+	std::vector<size_t> idx(v.size());
+	for (std::size_t i = 0; i != idx.size(); ++i) idx[i] = i;
 
-  // sort indexes based on comparing values in v
-  std::sort(idx.begin(), idx.end(),
-       [&v](std::size_t i1, std::size_t i2) {return v[i1] < v[i2];});
+	// sort indexes based on comparing values in v
+	std::sort(idx.begin(), idx.end(),
+			[&v](std::size_t i1, std::size_t i2) {return v[i1] < v[i2];});
 
-  return idx;
+	return idx;
 }
 template <typename T>
 double calcRadius(const T& i0, const T& j0, const T& k0,
@@ -84,6 +84,10 @@ public:
 	void ReadFile(const std::string& filename);
 	void WriteFile(const std::string& filename);
 	node_selection<double> getProbability();
+	node_selection<double> CreateListOfVerticesSimple(
+			const double& radius,
+			const uint32_t& pointsPerPass,
+			const double& ignoreBelowThreshold);
 	node_selection<double> CreateListOfVertices(
 			const double& radius, const uint32_t maxPoints=0);
 	void updateProbabilities(const node_selection<double>& ineligibleNodes,
@@ -134,6 +138,7 @@ public:
 	double dy_;
 	double dz_;
 	std::vector< nodeIndexVal<Z> > imgArr_;
+	int debugLevel_;
 };
 
 template<typename Z>
@@ -283,6 +288,155 @@ inline node_selection<double> node_selection<Z>::getProbability() {
 
 }
 
+template<typename Z>
+node_selection<double> node_selection<Z>::CreateListOfVerticesSimple(
+		const double& radius,
+		const uint32_t& pointsPerPass,
+		const double& ignoreBelowThreshold){
+	std::cout << "dont use this, use the specialized one for double\n";
+}
+/*
+ * select pointsPerPass ensuring they are separated by radius.
+ * It then resorts the probabilities.
+ *
+ * Returns a list of nodes that should be used for mesh generation...
+ *
+ * Notice we specialized this template.
+ */
+template<>
+node_selection<double> node_selection<double>::CreateListOfVerticesSimple(
+		const double& radius,
+		const uint32_t& pointsPerPass,
+		const double& ignoreBelowThreshold){
+
+	std::cout << "radius: " << radius << "\n";
+	std::cout << "maximum number of points to select per pass: " << pointsPerPass << "\n";
+	std::cout << "threshold: " << ignoreBelowThreshold << "\n";
+
+	auto minVal = std::min_element(imgArr_.begin(), imgArr_.end(), comp_lt_nodeIndexVal<double>);
+	auto maxVal = std::max_element(imgArr_.begin(), imgArr_.end(), comp_lt_nodeIndexVal<double>);
+	std::cout << "min,max value of input: " << *minVal << " at index= " << minVal-imgArr_.begin()
+			<< ", " << *maxVal << " at index= " << maxVal-imgArr_.begin() << "\n";
+
+	uint32_t numPtsAboveThresh{0};
+	uint32_t currIndex{0};
+	for (uint32_t i = 0; i < imgArr_.size(); ++i) if (imgArr_[i].val_ >= ignoreBelowThreshold) numPtsAboveThresh++;
+	std::cout << " fraction of pts above threshold: " << numPtsAboveThresh << "/" << imgArr_.size() << "\n";
+	std::cout << " throwing away pts below threshold...\n";
+	imgArr_.resize(numPtsAboveThresh);
+	numPtsAboveThresh=0;
+	for (uint32_t i = 0; i < imgArr_.size(); ++i) if (imgArr_[i].val_ != 0.) numPtsAboveThresh++;
+	std::cout << " fraction of pts above threshold: " << numPtsAboveThresh << "/" << imgArr_.size() << "\n";
+
+	node_selection<double> result{};
+	result.x0_ = x0_;
+	result.y0_ = y0_;
+	result.z0_ = z0_;
+	result.dx_ = dx_;
+	result.dy_ = dy_;
+	result.dz_ = dz_;
+	result.nx_ = nx_;
+	result.ny_ = ny_;
+	result.nz_ = nz_;
+
+	//initialize array to maximum size, we will trim at end
+	result.imgArr_.clear();
+	result.imgArr_.resize(imgArr_.size());
+	for (uint32_t i = 0; i < result.imgArr_.size(); ++i) {
+		result.imgArr_[i].i_ = -1;
+		result.imgArr_[i].j_ = -1;
+		result.imgArr_[i].k_ = -1;
+		result.imgArr_[i].val_ = -1;
+	}
+
+	//fill a dummy probArr so we can move easily through space
+	std::vector<double> probArr(nx_*ny_*nz_, 0.0);
+	//now update the dummyArr with current true probs
+	currIndex=0;
+	double totalProb{0};
+	for (uint32_t i = 0; i < imgArr_.size(); ++i) {
+		currIndex = ArrayIndicesX(nx_, ny_, nz_,
+				imgArr_[i].i_,imgArr_[i].j_,imgArr_[i].k_, currIndex);
+		probArr[currIndex] = imgArr_[i].val_;
+		totalProb+=probArr[currIndex];
+	}
+	std::cout << "total prob before updates...: " << totalProb << "\n";
+
+	//use this structure to hold intermediate results that are guaranteed to be separated by the radius...
+	node_selection<double> tempResult{};
+	tempResult.x0_ = x0_;
+	tempResult.y0_ = y0_;
+	tempResult.z0_ = z0_;
+	tempResult.dx_ = dx_;
+	tempResult.dy_ = dy_;
+	tempResult.dz_ = dz_;
+	tempResult.nx_ = nx_;
+	tempResult.ny_ = ny_;
+	tempResult.nz_ = nz_;
+	tempResult.imgArr_.clear();
+
+	double maxProbUpdate{0}, currentMax{0};
+	uint32_t dummyIndex{0};
+	uint32_t iterationCount{0};
+	const uint32_t maxIterations{1000};
+	while( (imgArr_.size() > pointsPerPass) && (iterationCount < maxIterations)){
+		std::cout << "iteration: " << iterationCount << "\n";
+		uint32_t pointsSelected{0};
+		tempResult.imgArr_.push_back(imgArr_[0]);
+		pointsSelected++;
+		updateProbabilities(imgArr_[0], radius, probArr);
+		for(uint32_t i=0; (i < imgArr_.size()) && (pointsSelected < pointsPerPass); ++i){
+			bool okToAdd{true};
+			for (int j = 0; j < tempResult.imgArr_.size(); ++j) {
+				if ( calcRadius(imgArr_[i], tempResult.imgArr_[j], dx_, dy_, dz_) < radius ){
+					okToAdd = false;
+					break;
+				}
+			}
+
+			if (okToAdd){
+				tempResult.imgArr_.push_back(imgArr_[i]);
+				pointsSelected++;
+				updateProbabilities(imgArr_[i], radius, probArr);
+			}
+		}
+
+		std::cout << "added " << tempResult.imgArr_.size() << " points\n";
+		//add tempResult to result
+		for (int i = 0; i < tempResult.imgArr_.size(); ++i) {
+			result.imgArr_[dummyIndex] = tempResult.imgArr_[i];
+			dummyIndex++;
+		}
+		tempResult.imgArr_.clear();
+
+		//now update and sort
+		//now update the imgArr_ with current true probs
+		std::cout << "updating the nodes imgArr_ ...\n";
+		for (uint32_t i = 0; i < imgArr_.size(); ++i) {
+			currIndex = ArrayIndicesX(nx_, ny_, nz_,
+					imgArr_[i].i_,imgArr_[i].j_,imgArr_[i].k_, currIndex);
+			imgArr_[i].val_ = probArr[currIndex];
+		}
+		std::sort(imgArr_.begin(), imgArr_.end(), comp_gt_nodeIndexVal<double>);
+		numPtsAboveThresh=0;
+		for (uint32_t i = 0; i < imgArr_.size(); ++i) if (imgArr_[i].val_ >= ignoreBelowThreshold) numPtsAboveThresh++;
+		std::cout << " fraction of pts above threshold: " << numPtsAboveThresh << "/" << imgArr_.size() << "\n";
+		std::cout << " throwing away pts below threshold...\n";
+		imgArr_.resize(numPtsAboveThresh);
+
+		pointsSelected=0;
+		iterationCount++;
+	}
+
+	if (iterationCount >= maxIterations) std::cout << "Warning did not converge within maximum iterations " << maxIterations << " !\n";
+	//remove unnecessary elements from result
+	numPtsAboveThresh=0;
+	for (uint32_t i = 0; i < result.imgArr_.size(); ++i) if (result.imgArr_[i].val_ > 0) numPtsAboveThresh++;
+	result.imgArr_.resize(numPtsAboveThresh);
+
+	return result;
+
+}
 
 //this assumes the current imgArr is a sorted probability node_selection
 // see readEGS_in_VTK.cxx
@@ -367,7 +521,14 @@ node_selection<double> node_selection<Z>::CreateListOfVertices(
 	}
 	std::cout << "total prob before updates...: " << totalProb << "\n";
 
-	//we will keep the imgArr_ sorted, just stop one short to avoid bounds error
+	//we will keep the imgArr_ sorted, just stop one short to a	//now update the dummyArr with current true probs
+	std::cout << "updating the nodes imgArr_ ...\n";
+	for (uint32_t i = 0; i < imgArr_.size(); ++i) {
+		currIndex = ArrayIndicesX(nx_, ny_, nz_,
+				imgArr_[i].i_,imgArr_[i].j_,imgArr_[i].k_, currIndex);
+		imgArr_[i].val_ = probArr[currIndex];
+	}
+
 	double nextVal{0}; //this will hold the probability for the next entry
 	double maxProbUpdate{0}, currentMax{0};
 	uint32_t dummyIndex{0};
@@ -380,11 +541,13 @@ node_selection<double> node_selection<Z>::CreateListOfVertices(
 			maxProbUpdate = updateProbabilities(imgArr_[i], radius, probArr);
 			//keep track of maximum updated value
 			if (maxProbUpdate > currentMax) currentMax = maxProbUpdate;
-			if (currentMax > nextVal){
+			if (currentMax > nextVal ||
+					calcRadius(imgArr_[i], imgArr_[i+1], dx_,dy_,dz_) < radius){
 				result.imgArr_[dummyIndex] = imgArr_[i];
 				okToAddNode[i] = false;
 				i=0;
 				updateAndSort(probArr, okToAddNode);
+				currentMax=0; //updated array, so reset max.
 			}
 			else{
 				result.imgArr_[dummyIndex] = imgArr_[i];
@@ -512,50 +675,9 @@ inline void node_selection<Z>::updateProbabilities(
 	}
 	std::cout << "total prob before updates...: " << totalProb << "\n";
 
-	//now go through the ineligibleNodes and decrease probabilities of their neighbors
-	int gMinI, gMaxI, gMinJ, gMaxJ, gMinK, gMaxK; //global min/max indices
-	int ti, tj, tk; //temp indices
-	//find bounding integers for extent of radius
-	int32_t const deltaI {ceil(radius/dx_)};
-	int32_t const deltaJ {ceil(radius/dy_)};
-	int32_t const deltaK {ceil(radius/dz_)};
+
 	for (uint32_t i = 0; i < ineligibleNodes.imgArr_.size(); ++i) {
-
-		ti = ineligibleNodes.imgArr_[i].i_;
-		tj = ineligibleNodes.imgArr_[i].j_;
-		tk = ineligibleNodes.imgArr_[i].k_;
-
-
-		gMinI = ti - deltaI;
-		gMinI = (gMinI < 0) ? 0 : gMinI;
-		gMinJ = tj - deltaJ;
-		gMinJ = (gMinJ < 0) ? 0 : gMinJ;
-		gMinK = tk - deltaK;
-		gMinK = (gMinK < 0) ? 0 : gMinK;
-
-		gMaxI = ti + deltaI;
-		gMaxI = (gMaxI >= nx_) ? nx_ - 1 : gMaxI;
-		gMaxJ = tj + deltaJ;
-		gMaxJ = (gMaxJ >= ny_) ? ny_ - 1 : gMaxJ;
-		gMaxK = tk + deltaK;
-		gMaxK = (gMaxK >= nz_) ? nz_ - 1 : gMaxK;
-
-		double myRadius=0;
-		for (int ii = gMinI; ii <= gMaxI; ++ii)
-			for(int jj = gMinJ; jj <= gMaxJ; ++jj)
-				for(int kk = gMinK; kk <= gMaxK; ++kk){
-					//check that its nonzero
-					currIndex = ArrayIndicesX(nx_,ny_, nz_,
-							ii,jj,kk, currIndex);
-					if (dummyArr[currIndex] > 0) {
-						myRadius = calcRadius(ti,tj,tk, ii,jj,kk, dx_, dy_,dz_);
-						if (myRadius < radius){
-							dummyArr[currIndex] *= pow(myRadius/radius, 2); //just using a quadratic, by definition will vary between 0 an and 1
-						}
-
-					}
-
-				}
+		updateProbabilities(ineligibleNodes.imgArr_[i], radius, dummyArr);
 	}
 
 
@@ -623,8 +745,10 @@ inline double node_selection<Z>::updateProbabilities(
 				if (probArr[currIndex] > 0.) {
 					myRadius = calcRadius(ti,tj,tk, ii,jj,kk, dx_, dy_,dz_);
 					if (myRadius < radius){
-						//just using a quadratic, by definition will vary between 0 an and 1
-						probArr[currIndex] *= pow(myRadius/radius, 2);
+						//just using a quadratic, by definition will vary between 0 an and 1 (f(r) = (r/r0)^2)
+						//probArr[currIndex] *= pow(myRadius/radius, 2);
+						//f(r) = -(r/r0-1)^2 + 1; this doesnt penalize points close to selection as much...
+						probArr[currIndex] *= 1 - pow((myRadius/radius - 1), 2);
 						if (probArr[currIndex] > updatedMax) updatedMax = probArr[currIndex];
 					}
 				}
@@ -649,27 +773,33 @@ inline void node_selection<Z>::updateAndSort(std::vector<double>& probArr, std::
 		imgArr_[i].val_ = probArr[currIndex];
 	}
 
-    std::cout << "sorting nodes by prob...\n";
+	std::cout << "sorting nodes by prob...\n";
 
-     // initialize original index locations
-    std::cout << "generated indices\n";
-     std::vector<uint32_t> idx(imgArr_.size());
-     for (uint32_t i = 0; i != idx.size(); ++i) idx[i] = i;
+	// initialize original index locations
+	std::cout << "generated indices\n";
+	std::vector<uint32_t> idx(imgArr_.size());
+	for (uint32_t i = 0; i != idx.size(); ++i) idx[i] = i;
 
-     std::cout << "sorting indices\n";
-      // sort indexes based on comparing values in v
-      std::sort(idx.begin(), idx.end(),
-           [this](uint32_t i1, uint32_t i2) {return imgArr_[i1].val_ > imgArr_[i2].val_;});
+	std::cout << "sorting indices\n";
+	// sort indexes based on comparing values in v
+	std::sort(idx.begin(), idx.end(),
+			[this](uint32_t i1, uint32_t i2) {return imgArr_[i1].val_ > imgArr_[i2].val_;});
 
-std::cout << "sorting imgArr_\n";
-      //now apply that index to imgArr using indices
-      std::sort(imgArr_.begin(), imgArr_.end(),
-    		  [&idx, this](size_t i1, size_t i2) {return idx[i1] < idx[i2];});
+	std::cout << "sorting imgArr_\n";
+	//now apply that index to imgArr using indices
+	std::sort(imgArr_.begin(), imgArr_.end(), comp_gt_nodeIndexVal<double>);
 
-std::cout << "updating okToAddNode\n";
-      //now sort the okToAddNode using indices
-      std::sort(okToAddNode.begin(), okToAddNode.end(),
-           [&idx](uint32_t i1, uint32_t i2)->bool {return idx[i1] < idx[i2];});
+
+	std::cout << "updating okToAddNode\n";
+	//now sort the okToAddNode using indices
+	std::sort(okToAddNode.begin(), okToAddNode.end(),
+			[&idx](uint32_t i1, uint32_t i2)->bool {return idx[i1] < idx[i2];});
+
+	//now trim the arrays
+	for (uint32_t i = 0; i < imgArr_.size(); ++i) {
+
+
+	}
 
 }
 

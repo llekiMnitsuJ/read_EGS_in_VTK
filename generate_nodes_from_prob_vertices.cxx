@@ -26,26 +26,40 @@ int main(int argc, char* argv[])
 	std::string sortedFilename = argv[1];
 	std::string probFilename = argv[2];
 
-//    node_selection<int16_t> myNodeObj{};
-//	myNodeObj.ReadFile(sortedFilename);
-//	std::cout << "myNodeObj imgArr size: " << myNodeObj.imgArr_.size() << "\n";
-//	node_selection<double> myProbObj = myNodeObj.getProbability();
-//	//remove probabilities that are 0
-//	uint32_t index{0};
-//	std::cout << "there are " << myProbObj.imgArr_.size() << " nodes in myProbObj\n";
-//	for (uint32_t i = 0; i < myProbObj.imgArr_.size(); ++i) {
-//		if (myProbObj.imgArr_[i].val_ > 0.) index = i;
-//	}
-//	myProbObj.imgArr_.resize(index+1);
-//	std::cout << "there are " << myProbObj.imgArr_.size() << " nodes in myProbObj\n";
-//	myProbObj.WriteFile("prob_"+probFilename);
+	enum jVal:uint8_t {MATERIAL, PROB};
+	jVal myCase = jVal::PROB;
 
 	node_selection<double> myProbObj{};
-	myProbObj.ReadFile(sortedFilename);
+	node_selection<double> myVertices{};
+	node_selection<int16_t> myNodeObj{};
+	uint32_t index{0};
+	switch (myCase) {
+	case (jVal::MATERIAL):
+		myNodeObj.ReadFile(sortedFilename);
+		std::cout << "myNodeObj imgArr size: " << myNodeObj.imgArr_.size() << "\n";
+		myProbObj = myNodeObj.getProbability();
+		//remove probabilities that are 0
+		index=0;
+		std::cout << "there are " << myProbObj.imgArr_.size() << " nodes in myProbObj\n";
+		for (uint32_t i = 0; i < myProbObj.imgArr_.size(); ++i) {
+			if (myProbObj.imgArr_[i].val_ > 0.) index = i;
+		}
+		myProbObj.imgArr_.resize(index+1);
+		std::cout << "there are " << myProbObj.imgArr_.size() << " nodes in myProbObj\n";
+		myProbObj.WriteFile("prob_"+probFilename);
 
-	node_selection<double> myVertices = myProbObj.CreateListOfVertices(5.0);
-	myVertices.WriteFile("inserted_"+probFilename);
-	myProbObj.WriteFile("remaining_"+probFilename);
+		break;
+	case (jVal::PROB):
+		myProbObj.ReadFile(sortedFilename);
+		myVertices = myProbObj.CreateListOfVerticesSimple(5.0, 10, 1E-9);
+		myVertices.WriteFile("inserted_"+probFilename);
+		myProbObj.WriteFile("remaining_"+probFilename);
+		break;
+
+	default:
+		std::cout << "undefined jVal!\n";
+		break;
+	}
 
 	return 0;
 }
