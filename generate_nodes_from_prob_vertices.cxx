@@ -5,7 +5,9 @@
  *      Author: jkmikell
  */
 
+
 #include "node_selection.h"
+#include <iostream>
 #include <vector>
 #include <boost/assert.hpp>
 
@@ -28,6 +30,14 @@ int main(int argc, char* argv[])
 //	myNodeObj.ReadFile(sortedFilename);
 //	std::cout << "myNodeObj imgArr size: " << myNodeObj.imgArr_.size() << "\n";
 //	node_selection<double> myProbObj = myNodeObj.getProbability();
+//	//remove probabilities that are 0
+//	uint32_t index{0};
+//	std::cout << "there are " << myProbObj.imgArr_.size() << " nodes in myProbObj\n";
+//	for (uint32_t i = 0; i < myProbObj.imgArr_.size(); ++i) {
+//		if (myProbObj.imgArr_[i].val_ > 0.) index = i;
+//	}
+//	myProbObj.imgArr_.resize(index+1);
+//	std::cout << "there are " << myProbObj.imgArr_.size() << " nodes in myProbObj\n";
 //	myProbObj.WriteFile("prob_"+probFilename);
 
 	node_selection<double> myProbObj{};

@@ -44,7 +44,19 @@ std::ostream& operator<<(std::ostream& os, const nodeIndexVal<Z>& o){
 	return(os);
 }
 
+template <typename T>
+std::vector<size_t> sort_indexes(const std::vector<T> &v) {
 
+  // initialize original index locations
+  std::vector<size_t> idx(v.size());
+  for (std::size_t i = 0; i != idx.size(); ++i) idx[i] = i;
+
+  // sort indexes based on comparing values in v
+  std::sort(idx.begin(), idx.end(),
+       [&v](std::size_t i1, std::size_t i2) {return v[i1] < v[i2];});
+
+  return idx;
+}
 template <typename T>
 double calcRadius(const T& i0, const T& j0, const T& k0,
 		const T& i, const T&j, const T& k,
@@ -640,22 +652,25 @@ inline void node_selection<Z>::updateAndSort(std::vector<double>& probArr, std::
     std::cout << "sorting nodes by prob...\n";
 
      // initialize original index locations
-     std::vector<uint32_t> idx(probArr.size());
+    std::cout << "generated indices\n";
+     std::vector<uint32_t> idx(imgArr_.size());
      for (uint32_t i = 0; i != idx.size(); ++i) idx[i] = i;
 
+     std::cout << "sorting indices\n";
       // sort indexes based on comparing values in v
       std::sort(idx.begin(), idx.end(),
-           [this](uint32_t i1, uint32_t i2) {return this->imgArr_[i1].val_ > this->imgArr_[i2].val_;});
+           [this](uint32_t i1, uint32_t i2) {return imgArr_[i1].val_ > imgArr_[i2].val_;});
 
-      /* fix these
+std::cout << "sorting imgArr_\n";
       //now apply that index to imgArr using indices
       std::sort(imgArr_.begin(), imgArr_.end(),
-           [&idx](uint32_t i1, uint32_t i2)->bool {return idx[i1] < idx[i2];});
+    		  [&idx, this](size_t i1, size_t i2) {return idx[i1] < idx[i2];});
 
+std::cout << "updating okToAddNode\n";
       //now sort the okToAddNode using indices
       std::sort(okToAddNode.begin(), okToAddNode.end(),
            [&idx](uint32_t i1, uint32_t i2)->bool {return idx[i1] < idx[i2];});
-*/
+
 }
 
 #endif /* NODE_SELECTION_H_ */
