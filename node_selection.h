@@ -95,7 +95,7 @@ public:
 	double updateProbabilities(const nodeIndexVal<double>& centerNode,
 			const double& radius, std::vector<double>& probArr);
 	void updateAndSort(std::vector<double>& probArr, std::vector<bool>& okToAddNode);
-
+	void WriteTetGenNodeFile(const std::string& filename);
 
 	// i,j,k, are zero based.
 	// returned 1D index is 0 based
@@ -107,26 +107,46 @@ public:
 		return result;
 	}
 
-	template<typename T, typename U, typename S>
-	S GetXLoc(const U& nx, const U& ny, const U& nz,
-			const T& i, const T& j, const T& k, const S& retType) const {
-		S result = x0_ + i*(nx-1)*dx_;
+	template<typename S>
+	S GetXLoc(const nodeIndexVal<Z>& myIndex, const S& dummy) const{
+		S result = x0_ + myIndex.i_*dx_;
 		return result;
 	}
 
-	template<typename T, typename U, typename S>
-	S GetYLoc(const U& nx, const U& ny, const U& nz,
-			const T& i, const T& j, const T& k, const S& retType) const {
-		S result = y0_ + j*(ny-1)*dy_;
+	template<typename S>
+	S GetYLoc(const nodeIndexVal<Z>& myIndex, const S& dummy) const{
+		S result = y0_ + myIndex.j_*dy_;
 		return result;
 	}
 
-	template<typename T, typename U, typename S>
-	S GetZLoc(const U& nx, const U& ny, const U& nz,
-			const T& i, const T& j, const T& k, const S& retType) const {
-		S result = z0_ + k*(nz-1)*dz_;
+	template<typename S>
+	S GetZLoc(const nodeIndexVal<Z>& myIndex, const S& dummy) const{
+		S result = z0_ + myIndex.k_*dz_;
 		return result;
 	}
+
+
+//	template<typename T, typename U, typename S>
+//	S GetXLoc(const U& nx, const U& ny, const U& nz,
+//			const T& i, const T& j, const T& k, const S& retType) const {
+//		S result = x0_ + i*(nx-1)*dx_;
+//		return result;
+//	}
+//
+//	template<typename T, typename U, typename S>
+//	S GetYLoc(const U& nx, const U& ny, const U& nz,
+//			const T& i, const T& j, const T& k, const S& retType) const {
+//		S result = y0_ + j*(ny-1)*dy_;
+//		return result;
+//	}
+//
+//	template<typename T, typename U, typename S>
+//	S GetZLoc(const U& nx, const U& ny, const U& nz,
+//			const T& i, const T& j, const T& k, const S& retType) const {
+//		S result = z0_ + k*(nz-1)*dz_;
+//		return result;
+//	}
+
 
 	int nx_;
 	int ny_;
@@ -801,6 +821,37 @@ inline void node_selection<Z>::updateAndSort(std::vector<double>& probArr, std::
 
 	}
 
+}
+
+template<typename Z>
+inline void node_selection<Z>::WriteTetGenNodeFile(
+		const std::string& filename) {
+
+	const double dummy{0};
+	std::ofstream os;
+	os.open(filename.c_str());
+
+	if (os.is_open())
+	{
+		os << "#<# of points> <dimensions (def=3)> <# of attributes> <boundary markers (0 or 1)>\n";
+
+		uint32_t dim=3, attr=0, boundMarkers=0;
+		os << imgArr_.size() << " " << dim << " " << attr << " " << boundMarkers << "\n";
+		os << "#Remaining lines list # of points:\n";
+		os << "#<point #> <x> <y> <z> [attributes] [boundary marker]\n";
+		for (size_t i = 0; i < imgArr_.size(); ++i)
+		{
+			os << i << " "
+					<< GetXLoc(imgArr_[i], dummy) << " "
+					<< GetYLoc(imgArr_[i], dummy) << " "
+					<< GetZLoc(imgArr_[i], dummy) << "\n";
+		}
+		os.close();
+	}
+	else
+	{
+		std::cout << "unable to open " << filename << " for writing!\n";
+	}
 }
 
 #endif /* NODE_SELECTION_H_ */

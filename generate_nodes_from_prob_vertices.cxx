@@ -54,6 +54,7 @@ int main(int argc, char* argv[])
 		myVertices = myProbObj.CreateListOfVerticesSimple(5.0, 10, 1E-9);
 		myVertices.WriteFile("inserted_"+probFilename);
 		myProbObj.WriteFile("remaining_"+probFilename);
+		myVertices.WriteTetGenNodeFile("out.node");
 		break;
 
 	default:
